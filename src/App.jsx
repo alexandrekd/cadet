@@ -3,6 +3,78 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine, ResponsiveContai
 import { PHASES, ALL_TESTS, WEEKLY_PLAN, PSY0_EXAM_ORDER, PSY2_QUESTIONS, CHECKLIST_ITEMS, EXAM_DATE, TARGET } from "./data.js"
 import { fetchScores, addScore, deleteScore, fetchSessions, addSession, deleteSession, fetchTestNotes, upsertTestNote, fetchP2Notes, upsertP2Note } from "./db.js"
 
+// ── PIN ───────────────────────────────────────────────────────────────────────
+const PIN = "2318" // Change ce code ici
+
+function LoginScreen({ onSuccess }) {
+  const [input, setInput] = useState("")
+  const [error, setError] = useState(false)
+  const [shake, setShake] = useState(false)
+
+  const handleKey = (digit) => {
+    if (input.length >= 4) return
+    const next = input + digit
+    setInput(next)
+    setError(false)
+    if (next.length === 4) {
+      if (next === PIN) {
+        localStorage.setItem("cadet_auth", "1")
+        onSuccess()
+      } else {
+        setShake(true)
+        setError(true)
+        setTimeout(() => { setInput(""); setShake(false) }, 600)
+      }
+    }
+  }
+
+  const handleDel = () => { setInput(p => p.slice(0,-1)); setError(false) }
+
+  const keys = ["1","2","3","4","5","6","7","8","9","","0","⌫"]
+
+  return (
+    <div style={{ minHeight:"100vh", background:"#060b18", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center" }}>
+      <div style={{ fontSize:36, marginBottom:8 }}>✈️</div>
+      <div style={{ fontWeight:800, fontSize:18, color:"#e2e8f8", letterSpacing:2, marginBottom:4 }}>CADET TRACKER</div>
+      <div style={{ fontSize:11, color:"#3b82f6", letterSpacing:3, marginBottom:40 }}>AIR FRANCE · ACCÈS SÉCURISÉ</div>
+
+      {/* Dots */}
+      <div style={{ display:"flex", gap:16, marginBottom:32, animation: shake ? "shake .4s ease" : "none" }}>
+        {[0,1,2,3].map(i => (
+          <div key={i} style={{
+            width:16, height:16, borderRadius:"50%",
+            background: error ? "#ef4444" : i < input.length ? "#3b82f6" : "#1e293b",
+            border: `2px solid ${error ? "#ef4444" : i < input.length ? "#3b82f6" : "#334155"}`,
+            transition:"all .15s ease"
+          }} />
+        ))}
+      </div>
+
+      {error && <div style={{ color:"#ef4444", fontSize:12, marginBottom:16, letterSpacing:1 }}>CODE INCORRECT</div>}
+
+      {/* Keypad */}
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,72px)", gap:10 }}>
+        {keys.map((k, i) => (
+          k === "" ? <div key={i} /> :
+          <button key={i} onClick={() => k === "⌫" ? handleDel() : handleKey(k)} style={{
+            height:72, borderRadius:12, border:"1px solid #1e293b",
+            background: k === "⌫" ? "#0d1528" : "#111e35",
+            color:"#e2e8f8", fontSize: k === "⌫" ? 20 : 24, fontWeight:700,
+            cursor:"pointer", transition:"all .1s ease",
+          }}
+          onMouseDown={e => e.currentTarget.style.background = "#1e3a5f"}
+          onMouseUp={e => e.currentTarget.style.background = k === "⌫" ? "#0d1528" : "#111e35"}
+          >
+            {k}
+          </button>
+        ))}
+      </div>
+
+      <style>{`@keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-8px)} 40%,80%{transform:translateX(8px)} }`}</style>
+    </div>
+  )
+}
+
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 const scoreColor = s => {
   if (s === null || s === undefined) return "#4b5563"
@@ -55,6 +127,58 @@ const Ico = ({ n, s=16, c="currentColor" }) => {
     sun:     <svg width={s} height={s} fill="none" stroke={c} strokeWidth="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/></svg>,
   }
   return icons[n] || null
+}
+
+// ── TEST CARD ─────────────────────────────────────────────────────────────────
+function TestCard({ t, phase, latest, hist, delta, gap, ready, testNotes, handleTestNote, handleDeleteScore, scoreColor, card, card2, border, muted, inp }) {
+  const [showChart, setShowChart] = useState(false)
+  const [showNote, setShowNote]   = useState(false)
+  return (
+    <div style={{ background:card, border:`1px solid ${ready?"#10b981":border}`, borderRadius:8, padding:"10px 13px" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+        <div style={{ flex:1 }}>
+          <div style={{ fontWeight:600, fontSize:13 }}>{ready&&"✅ "}{t.name}</div>
+          <div style={{ fontSize:11, color:muted }}>{t.desc}</div>
+        </div>
+        <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+          {latest!==null&&(
+            <>
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontSize:20, fontWeight:800, color:scoreColor(latest) }}>{latest}%</div>
+                <div style={{ fontSize:9, color:muted }}>DERNIER</div>
+              </div>
+              {gap!==null&&gap>0&&<div style={{ textAlign:"center" }}><div style={{ fontSize:13, fontWeight:700, color:"#ef4444" }}>-{gap}%</div><div style={{ fontSize:9, color:muted }}>AU CIBLE</div></div>}
+              {delta!==null&&<div style={{ textAlign:"center" }}><div style={{ fontSize:12, fontWeight:700, color:delta>=0?"#10b981":"#ef4444" }}>{delta>=0?`+${delta}`:delta}%</div><div style={{ fontSize:9, color:muted }}>DELTA</div></div>}
+            </>
+          )}
+          {latest===null&&<div style={{ fontSize:12, color:muted }}>—</div>}
+          <button onClick={()=>setShowChart(v=>!v)} style={{ background:"none", border:"none", cursor:"pointer" }}><Ico n="chart" s={14} c="#60a5fa" /></button>
+          <button onClick={()=>setShowNote(v=>!v)} style={{ background:"none", border:"none", cursor:"pointer" }}><Ico n="note" s={14} c="#f59e0b" /></button>
+        </div>
+      </div>
+      {latest!==null&&<div style={{ marginTop:7 }}><ScoreBar value={latest} height={7} /></div>}
+      {hist.length>0&&(
+        <div style={{ marginTop:5, display:"flex", gap:4, flexWrap:"wrap" }}>
+          {hist.map((h,i) => (
+            <span key={h.id||i} style={{ fontSize:10, background:card2, borderRadius:4, padding:"2px 7px", color:scoreColor(h.score), display:"flex", alignItems:"center", gap:4 }}>
+              {h.date} · {h.score}%
+              <button onClick={()=>handleDeleteScore(t.id, h.id)} style={{ background:"none", border:"none", cursor:"pointer", padding:0, lineHeight:1 }}><Ico n="trash" s={10} c="#ef4444" /></button>
+            </span>
+          ))}
+        </div>
+      )}
+      {showChart&&<div style={{ marginTop:10, borderTop:`1px solid ${border}`, paddingTop:10 }}><MiniChart data={hist} color={phase.color} /></div>}
+      {showNote&&(
+        <textarea
+          placeholder="Notes, astuces, méthodes..."
+          value={testNotes[t.id]||""}
+          onChange={e=>handleTestNote(t.id, e.target.value)}
+          rows={2}
+          style={{ ...inp, width:"100%", resize:"vertical", boxSizing:"border-box", marginTop:8 }}
+        />
+      )}
+    </div>
+  )
 }
 
 // ── APP ───────────────────────────────────────────────────────────────────────
@@ -214,6 +338,9 @@ export default function App() {
     { id:"exam",      label:"Examen Blanc", icon:"exam" },
     { id:"timer",     label:"Timer",     icon:"timer"   },
   ]
+
+  const [auth, setAuth] = useState(() => localStorage.getItem("cadet_auth") === "1")
+  if (!auth) return <LoginScreen onSuccess={() => setAuth(true)} />
 
   if (loading) return (
     <div style={{ minHeight:"100vh", background:"#060b18", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", color:"#e2e8f8" }}>
@@ -420,53 +547,10 @@ export default function App() {
                 <div style={{ display:"grid", gap:6 }}>
                   {phase.tests.map(t => {
                     const latest=getLatest(t.id), hist=getHistory(t.id), delta=getDelta(t.id), gap=getGap(t.id), ready=latest!==null&&latest>=TARGET
-                    const [showChart, setShowChart] = useState(false)
-                    const [showNote, setShowNote]   = useState(false)
                     return (
-                      <div key={t.id} style={{ background:card, border:`1px solid ${ready?"#10b981":border}`, borderRadius:8, padding:"10px 13px" }}>
-                        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                          <div style={{ flex:1 }}>
-                            <div style={{ fontWeight:600, fontSize:13 }}>{ready&&"✅ "}{t.name}</div>
-                            <div style={{ fontSize:11, color:muted }}>{t.desc}</div>
-                          </div>
-                          <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-                            {latest!==null&&(
-                              <>
-                                <div style={{ textAlign:"center" }}>
-                                  <div style={{ fontSize:20, fontWeight:800, color:scoreColor(latest) }}>{latest}%</div>
-                                  <div style={{ fontSize:9, color:muted }}>DERNIER</div>
-                                </div>
-                                {gap!==null&&gap>0&&<div style={{ textAlign:"center" }}><div style={{ fontSize:13, fontWeight:700, color:"#ef4444" }}>-{gap}%</div><div style={{ fontSize:9, color:muted }}>AU CIBLE</div></div>}
-                                {delta!==null&&<div style={{ textAlign:"center" }}><div style={{ fontSize:12, fontWeight:700, color:delta>=0?"#10b981":"#ef4444" }}>{delta>=0?`+${delta}`:delta}%</div><div style={{ fontSize:9, color:muted }}>DELTA</div></div>}
-                              </>
-                            )}
-                            {latest===null&&<div style={{ fontSize:12, color:muted }}>—</div>}
-                            <button onClick={()=>setShowChart(v=>!v)} style={{ background:"none", border:"none", cursor:"pointer" }}><Ico n="chart" s={14} c="#60a5fa" /></button>
-                            <button onClick={()=>setShowNote(v=>!v)} style={{ background:"none", border:"none", cursor:"pointer" }}><Ico n="note" s={14} c="#f59e0b" /></button>
-                          </div>
-                        </div>
-                        {latest!==null&&<div style={{ marginTop:7 }}><ScoreBar value={latest} height={7} /></div>}
-                        {hist.length>0&&(
-                          <div style={{ marginTop:5, display:"flex", gap:4, flexWrap:"wrap" }}>
-                            {hist.map((h,i) => (
-                              <span key={h.id||i} style={{ fontSize:10, background:card2, borderRadius:4, padding:"2px 7px", color:scoreColor(h.score), display:"flex", alignItems:"center", gap:4 }}>
-                                {h.date} · {h.score}%
-                                <button onClick={()=>handleDeleteScore(t.id, h.id)} style={{ background:"none", border:"none", cursor:"pointer", padding:0, lineHeight:1 }}><Ico n="trash" s={10} c="#ef4444" /></button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        {showChart&&<div style={{ marginTop:10, borderTop:`1px solid ${border}`, paddingTop:10 }}><MiniChart data={hist} color={phase.color} /></div>}
-                        {showNote&&(
-                          <textarea
-                            placeholder="Notes, astuces, méthodes..."
-                            value={testNotes[t.id]||""}
-                            onChange={e=>handleTestNote(t.id, e.target.value)}
-                            rows={2}
-                            style={{ ...inp, width:"100%", resize:"vertical", boxSizing:"border-box", marginTop:8 }}
-                          />
-                        )}
-                      </div>
+                      <TestCard key={t.id} t={t} phase={phase} latest={latest} hist={hist} delta={delta} gap={gap} ready={ready}
+                        testNotes={testNotes} handleTestNote={handleTestNote} handleDeleteScore={handleDeleteScore}
+                        scoreColor={scoreColor} card={card} card2={card2} border={border} muted={muted} inp={inp} />
                     )
                   })}
                 </div>
