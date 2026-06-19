@@ -57,6 +57,58 @@ const Ico = ({ n, s=16, c="currentColor" }) => {
   return icons[n] || null
 }
 
+// ── TEST CARD ─────────────────────────────────────────────────────────────────
+function TestCard({ t, phase, latest, hist, delta, gap, ready, testNotes, handleTestNote, handleDeleteScore, scoreColor, card, card2, border, muted, inp }) {
+  const [showChart, setShowChart] = useState(false)
+  const [showNote, setShowNote]   = useState(false)
+  return (
+    <div style={{ background:card, border:`1px solid ${ready?"#10b981":border}`, borderRadius:8, padding:"10px 13px" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+        <div style={{ flex:1 }}>
+          <div style={{ fontWeight:600, fontSize:13 }}>{ready&&"✅ "}{t.name}</div>
+          <div style={{ fontSize:11, color:muted }}>{t.desc}</div>
+        </div>
+        <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+          {latest!==null&&(
+            <>
+              <div style={{ textAlign:"center" }}>
+                <div style={{ fontSize:20, fontWeight:800, color:scoreColor(latest) }}>{latest}%</div>
+                <div style={{ fontSize:9, color:muted }}>DERNIER</div>
+              </div>
+              {gap!==null&&gap>0&&<div style={{ textAlign:"center" }}><div style={{ fontSize:13, fontWeight:700, color:"#ef4444" }}>-{gap}%</div><div style={{ fontSize:9, color:muted }}>AU CIBLE</div></div>}
+              {delta!==null&&<div style={{ textAlign:"center" }}><div style={{ fontSize:12, fontWeight:700, color:delta>=0?"#10b981":"#ef4444" }}>{delta>=0?`+${delta}`:delta}%</div><div style={{ fontSize:9, color:muted }}>DELTA</div></div>}
+            </>
+          )}
+          {latest===null&&<div style={{ fontSize:12, color:muted }}>—</div>}
+          <button onClick={()=>setShowChart(v=>!v)} style={{ background:"none", border:"none", cursor:"pointer" }}><Ico n="chart" s={14} c="#60a5fa" /></button>
+          <button onClick={()=>setShowNote(v=>!v)} style={{ background:"none", border:"none", cursor:"pointer" }}><Ico n="note" s={14} c="#f59e0b" /></button>
+        </div>
+      </div>
+      {latest!==null&&<div style={{ marginTop:7 }}><ScoreBar value={latest} height={7} /></div>}
+      {hist.length>0&&(
+        <div style={{ marginTop:5, display:"flex", gap:4, flexWrap:"wrap" }}>
+          {hist.map((h,i) => (
+            <span key={h.id||i} style={{ fontSize:10, background:card2, borderRadius:4, padding:"2px 7px", color:scoreColor(h.score), display:"flex", alignItems:"center", gap:4 }}>
+              {h.date} · {h.score}%
+              <button onClick={()=>handleDeleteScore(t.id, h.id)} style={{ background:"none", border:"none", cursor:"pointer", padding:0, lineHeight:1 }}><Ico n="trash" s={10} c="#ef4444" /></button>
+            </span>
+          ))}
+        </div>
+      )}
+      {showChart&&<div style={{ marginTop:10, borderTop:`1px solid ${border}`, paddingTop:10 }}><MiniChart data={hist} color={phase.color} /></div>}
+      {showNote&&(
+        <textarea
+          placeholder="Notes, astuces, méthodes..."
+          value={testNotes[t.id]||""}
+          onChange={e=>handleTestNote(t.id, e.target.value)}
+          rows={2}
+          style={{ ...inp, width:"100%", resize:"vertical", boxSizing:"border-box", marginTop:8 }}
+        />
+      )}
+    </div>
+  )
+}
+
 // ── APP ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const [dark, setDark]           = useState(true)
@@ -420,53 +472,10 @@ export default function App() {
                 <div style={{ display:"grid", gap:6 }}>
                   {phase.tests.map(t => {
                     const latest=getLatest(t.id), hist=getHistory(t.id), delta=getDelta(t.id), gap=getGap(t.id), ready=latest!==null&&latest>=TARGET
-                    const [showChart, setShowChart] = useState(false)
-                    const [showNote, setShowNote]   = useState(false)
                     return (
-                      <div key={t.id} style={{ background:card, border:`1px solid ${ready?"#10b981":border}`, borderRadius:8, padding:"10px 13px" }}>
-                        <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                          <div style={{ flex:1 }}>
-                            <div style={{ fontWeight:600, fontSize:13 }}>{ready&&"✅ "}{t.name}</div>
-                            <div style={{ fontSize:11, color:muted }}>{t.desc}</div>
-                          </div>
-                          <div style={{ display:"flex", gap:10, alignItems:"center" }}>
-                            {latest!==null&&(
-                              <>
-                                <div style={{ textAlign:"center" }}>
-                                  <div style={{ fontSize:20, fontWeight:800, color:scoreColor(latest) }}>{latest}%</div>
-                                  <div style={{ fontSize:9, color:muted }}>DERNIER</div>
-                                </div>
-                                {gap!==null&&gap>0&&<div style={{ textAlign:"center" }}><div style={{ fontSize:13, fontWeight:700, color:"#ef4444" }}>-{gap}%</div><div style={{ fontSize:9, color:muted }}>AU CIBLE</div></div>}
-                                {delta!==null&&<div style={{ textAlign:"center" }}><div style={{ fontSize:12, fontWeight:700, color:delta>=0?"#10b981":"#ef4444" }}>{delta>=0?`+${delta}`:delta}%</div><div style={{ fontSize:9, color:muted }}>DELTA</div></div>}
-                              </>
-                            )}
-                            {latest===null&&<div style={{ fontSize:12, color:muted }}>—</div>}
-                            <button onClick={()=>setShowChart(v=>!v)} style={{ background:"none", border:"none", cursor:"pointer" }}><Ico n="chart" s={14} c="#60a5fa" /></button>
-                            <button onClick={()=>setShowNote(v=>!v)} style={{ background:"none", border:"none", cursor:"pointer" }}><Ico n="note" s={14} c="#f59e0b" /></button>
-                          </div>
-                        </div>
-                        {latest!==null&&<div style={{ marginTop:7 }}><ScoreBar value={latest} height={7} /></div>}
-                        {hist.length>0&&(
-                          <div style={{ marginTop:5, display:"flex", gap:4, flexWrap:"wrap" }}>
-                            {hist.map((h,i) => (
-                              <span key={h.id||i} style={{ fontSize:10, background:card2, borderRadius:4, padding:"2px 7px", color:scoreColor(h.score), display:"flex", alignItems:"center", gap:4 }}>
-                                {h.date} · {h.score}%
-                                <button onClick={()=>handleDeleteScore(t.id, h.id)} style={{ background:"none", border:"none", cursor:"pointer", padding:0, lineHeight:1 }}><Ico n="trash" s={10} c="#ef4444" /></button>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                        {showChart&&<div style={{ marginTop:10, borderTop:`1px solid ${border}`, paddingTop:10 }}><MiniChart data={hist} color={phase.color} /></div>}
-                        {showNote&&(
-                          <textarea
-                            placeholder="Notes, astuces, méthodes..."
-                            value={testNotes[t.id]||""}
-                            onChange={e=>handleTestNote(t.id, e.target.value)}
-                            rows={2}
-                            style={{ ...inp, width:"100%", resize:"vertical", boxSizing:"border-box", marginTop:8 }}
-                          />
-                        )}
-                      </div>
+                      <TestCard key={t.id} t={t} phase={phase} latest={latest} hist={hist} delta={delta} gap={gap} ready={ready}
+                        testNotes={testNotes} handleTestNote={handleTestNote} handleDeleteScore={handleDeleteScore}
+                        scoreColor={scoreColor} card={card} card2={card2} border={border} muted={muted} inp={inp} />
                     )
                   })}
                 </div>
